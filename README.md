@@ -11,4 +11,4 @@ cd dnamo_cnae
 
 source bin/activate
 
-pip install pandas json 
+pip install pandas xlrd 
