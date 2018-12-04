@@ -23,24 +23,29 @@ def lerExcel(inputfile):
     df['Descricao-BUSCA'] = df.apply(lambda row: remover_acentos(row['Descricao-BUSCA']), axis=1)
     df['Codigo'] = df.apply(lambda row: limpa_codigo(row['Codigo']), axis=1)
 
-    return df
+    df['Descricao'] = df.apply(lambda row: " {\"S\" : \"%s\"} " % row['Descricao'], axis=1)
+    df['Descricao-BUSCA'] = df.apply(lambda row: " {\"S\" : \"%s\"} " %row['Descricao-BUSCA'], axis=1)
+    df['Codigo'] = df.apply(lambda row: " {\"S\" : \"%s\"} " %row['Codigo'], axis=1)
 
+    return df
+"""
 def formata_items_json(df):
     df['Descricao'] = df.apply(lambda row: " {\"S\" : \"%s\"} " % row['Descricao'], axis=1)
     df['Descricao-BUSCA'] = df.apply(lambda row: " {\"S\" : \"%s\"} " %row['Descricao-BUSCA'], axis=1)
     df['Codigo'] = df.apply(lambda row: " {\"S\" : \"%s\"} " %row['Codigo'], axis=1)
 
     return df
+"""
 
 #Metodo para gerar o JSON
-def geraJson(df,outputfile, tableName):
-    cnaes = formata_items_json(df)
+def geraJson(cnaes,outputfile, tableName):
+#    cnaes = formata_items_json(df)
     #Adicionando cabeçalho de uma tabela do DynamoDb
-    jsonTxt = "{ \" %s \" : [ " % tableName
+    jsonTxt = "{ \"%s\" : [ " % tableName
 
     #Iterando valores do DataFrame
     for index, item in cnaes.iterrows():
-        jsonTxt = jsonTxt + "  { \"PutSegment\" : { \"Item\" : { \"Codigo\": %s, \"Descricao\": %s, \"Descricao-BUSCA\": %s } } } ," % (item['Codigo'], item['Descricao'], item['Descricao-BUSCA'])
+        jsonTxt = jsonTxt + "  { \"PutRequest\" : { \"Item\" : { \"Codigo\": %s, \"Descricao\": %s, \"Descricao-BUSCA\": %s } } } ," % (item['Codigo'], item['Descricao'], item['Descricao-BUSCA'])
 
     #fechadno o JSON
     jsonTxt = jsonTxt[:-1] + "  ]  }"
@@ -50,7 +55,6 @@ def geraJson(df,outputfile, tableName):
     file =  open(outputfile, "w")
     file.write(jsonTxt)
     file.close()
-
 
 def main(argv):
     inputfile = 'clean_cnae.xlsx'
@@ -74,8 +78,18 @@ def main(argv):
             tableName = arg
 
     xls2df = lerExcel(inputfile)
-    geraJson(xls2df, outputfile, tableName)
+    print(xls2df.shape[0])
 
+    step = 25
+    init = 0
+    last = 24
+    for i in range((xls2df.shape[0] // 25)+1):
+        jsonItem = "%s." % i
+        saida = outputfile.replace(".", jsonItem)
+        dfTemp = xls2df.loc[init:last:1, :]
+        geraJson(dfTemp, saida, tableName)
+        init = init + step
+        last = last + step
 
 if __name__ == "__main__":
    main(sys.argv[1:])
