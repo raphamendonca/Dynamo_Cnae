@@ -1,5 +1,6 @@
 import pandas as pd
 from unicodedata import normalize
+import sys, getopt
 
 #remove os ascentos e transforma em UpperCase
 def remover_acentos(txt):
@@ -15,8 +16,8 @@ def limpa_codigo(codigo):
     return codigo
 
 #Leitura do arquivo em xls, carregando os dados em um DataFrame
-def lerExcel():
-    df = pd.read_excel('../source/clean_cnae.xlsx')
+def lerExcel(inputfile):
+    df = pd.read_excel(inputfile)
 
     df['Descricao-BUSCA'] = df['Descricao']
     df['Descricao-BUSCA'] = df.apply(lambda row: remover_acentos(row['Descricao-BUSCA']), axis=1)
@@ -31,28 +32,50 @@ def formata_items_json(df):
 
     return df
 
-#Dataframe de Cnaes
-cnaes = formata_items_json(lerExcel())
+#Metodo para gerar o JSON
+def geraJson(df,outputfile, tableName):
+    cnaes = formata_items_json(df)
+    #Adicionando cabeçalho de uma tabela do DynamoDb
+    jsonTxt = "{ \" %s \" : [ " % tableName
 
-#Adicionando cabeçalho de uma tabela do DynamoDb
-jsonTxt = "{ \"AtividadeEconomica\" : [ "
+    #Iterando valores do DataFrame
+    for index, item in cnaes.iterrows():
+        jsonTxt = jsonTxt + "  { \"PutSegment\" : { \"Item\" : { \"Codigo\": %s, \"Descricao\": %s, \"Descricao-BUSCA\": %s } } } ," % (item['Codigo'], item['Descricao'], item['Descricao-BUSCA'])
 
-#Iterando valores do DataFrame
-for index, item in cnaes.iterrows():
-    jsonTxt = jsonTxt + "  { \"PutSegment\" : { \"Item\" : { \"Codigo\": %s, \"Descricao\": %s, \"Descricao-BUSCA\": %s } } } ," % (item['Codigo'], item['Descricao'], item['Descricao-BUSCA'])
+    #fechadno o JSON
+    jsonTxt = jsonTxt[:-1] + "  ]  }"
+    jsonTxt.replace("\('", "").replace("',\)", "")
 
-#fechadno o JSON
-jsonTxt = jsonTxt[:-1] + "  ]  }"
-jsonTxt.replace("\('", "").replace("',\)", "")
-
-#gerando o arquivo .json
-file =  open("../output/atividadeEconomica.json", "w")
-file.write(jsonTxt)
-file.close()
-
-
+    #gerando o arquivo .json
+    file =  open(outputfile, "w")
+    file.write(jsonTxt)
+    file.close()
 
 
-#print(cnaes.loc[1])
+def main(argv):
+    inputfile = 'clean_cnae.xlsx'
+    outputfile = 'atividadeEconomica.json'
+    tableName = 'AtividadeEconomica'
 
-#print(cnaes.to_json())
+    try:
+        opts, args = getopt.getopt(argv,"hi:o:n:",["input=","output=", "name="])
+    except getopt.GetoptError:
+        print ('xls_to_dynamodb_json.py -i <inputfile> -o <outputfile> -n <tableName>')
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt == '-h':
+            print ('xls_to_dynamodb_json.py -i <inputfile> -o <outputfile> -n <tableName>')
+            sys.exit()
+        elif opt in ("-i", "--input"):
+            inputfile = arg
+        elif opt in ("-o", "--output"):
+            outputfile = arg
+        elif opt in ("-n", "--name"):
+            tableName = arg
+
+    xls2df = lerExcel(inputfile)
+    geraJson(xls2df, outputfile, tableName)
+
+
+if __name__ == "__main__":
+   main(sys.argv[1:])
