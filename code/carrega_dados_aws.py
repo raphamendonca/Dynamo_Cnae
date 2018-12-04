@@ -8,9 +8,10 @@ aws dynamodb batch-write-item --request-items file://atividadeEconomica4.json --
 
 command = "aws dynamodb batch-write-item --request-items file://%s --endpoint-url http://%s --region %s"
 
-def carrega_jsons():
+def carrega_jsons(nome):
     files = []
     for file in os.listdir():
+        if file.
         if file.endswith(".json"):
             files.append(os.path.join( file))
     files.sort()
@@ -22,19 +23,19 @@ def main(argv):
     aws_region = 'local'
 
     try:
-        #opts, args = getopt.getopt(argv,"hf:u:r:",["file=","url=", "region="])
-        opts, args = getopt.getopt(argv,"hu:r:",["url=", "region="])
+        opts, args = getopt.getopt(argv,"hf:u:r:",["file=","url=", "region="])
+        #opts, args = getopt.getopt(argv,"hu:r:",["url=", "region="])
     except getopt.GetoptError:
-        #print ('xls_to_dynamodb_json.py -f <file> -u <url> -r <region>') 
-        print ('xls_to_dynamodb_json.py -u <url> -r <region>')
+        print ('xls_to_dynamodb_json.py -f <file> -u <url> -r <region>') 
+        #print ('xls_to_dynamodb_json.py -u <url> -r <region>')
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
-            #print ('xls_to_dynamodb_json.py -f <file> -u <url> -r <region>')
-            print ('xls_to_dynamodb_json.py -u <url> -r <region>')
+            print ('xls_to_dynamodb_json.py -f <file> -u <url> -r <region>')
+            #print ('xls_to_dynamodb_json.py -u <url> -r <region>')
             sys.exit()
-        #elif opt in ("-f", "--file"):
-        #    json_file = arg
+        elif opt in ("-f", "--file"):
+            json_file = arg
         elif opt in ("-u", "--url"):
             aws_url = arg
         elif opt in ("-r", "--region"):
@@ -47,11 +48,11 @@ def main(argv):
     text = input("Want to execute the command to every .json file in the folder? [y/n]  ") 
     if text == 'y':
         print("......")
-        files = carrega_jsons()
-        for json_file in files:
-            #print(command % (json_file, aws_url, aws_region))
-            os.system(command % (json_file, aws_url, aws_region))
-            print("End of file %s" % json_file)
+        files = carrega_jsons(json_file)
+        for itemFile in files:
+            #print(command % (itemFile, aws_url, aws_region))
+            os.system(command % (itemFile, aws_url, aws_region))
+            print("End of file %s" % itemFile)
         print("Done")
         print("Processed %s files" % len(files))
 
