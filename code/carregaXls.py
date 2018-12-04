@@ -1,9 +1,11 @@
 import pandas as pd
 from unicodedata import normalize
 
+#remove os ascentos e transforma em UpperCase
 def remover_acentos(txt):
     return normalize('NFKD', txt).encode('ASCII', 'ignore').decode('ASCII').upper()
 
+#remove os caracteres - e / do campo codigo
 def limpa_codigo(codigo):
     if type(codigo) is str:
         if '-' in codigo:
@@ -12,23 +14,45 @@ def limpa_codigo(codigo):
             codigo = codigo.replace('/','')
     return codigo
 
-def add_to_Dynamo_json(campo):
-    return "{\"S\", \"%s\"}" % campo,
-
+#Leitura do arquivo em xls, carregando os dados em um DataFrame
 def lerExcel():
-    df = pd.read_excel('source/clean_cnae.xlsx')
+    df = pd.read_excel('../source/clean_cnae.xlsx')
 
     df['Descricao-BUSCA'] = df['Descricao']
     df['Descricao-BUSCA'] = df.apply(lambda row: remover_acentos(row['Descricao-BUSCA']), axis=1)
     df['Codigo'] = df.apply(lambda row: limpa_codigo(row['Codigo']), axis=1)
 
-    df['Descricao'] = df.apply(lambda row: add_to_Dynamo_json(row['Descricao']), axis=1)
-    df['Descricao-BUSCA'] = df.apply(lambda row: add_to_Dynamo_json(row['Descricao-BUSCA']), axis=1)
-    df['Codigo'] = df.apply(lambda row: add_to_Dynamo_json(row['Codigo']), axis=1)
+    return df
+
+def formata_items_json(df):
+    df['Descricao'] = df.apply(lambda row: " {\"S\" : \"%s\"} " % row['Descricao'], axis=1)
+    df['Descricao-BUSCA'] = df.apply(lambda row: " {\"S\" : \"%s\"} " %row['Descricao-BUSCA'], axis=1)
+    df['Codigo'] = df.apply(lambda row: " {\"S\" : \"%s\"} " %row['Codigo'], axis=1)
 
     return df
 
-cnaes = lerExcel()
-#print(cnaes)
+#Dataframe de Cnaes
+cnaes = formata_items_json(lerExcel())
 
-print(cnaes.to_json())
+#Adicionando cabeçalho de uma tabela do DynamoDb
+jsonTxt = "{ \"AtividadeEconomica\" : [ "
+
+#Iterando valores do DataFrame
+for index, item in cnaes.iterrows():
+    jsonTxt = jsonTxt + "  { \"PutSegment\" : { \"Item\" : { \"Codigo\": %s, \"Descricao\": %s, \"Descricao-BUSCA\": %s } } } ," % (item['Codigo'], item['Descricao'], item['Descricao-BUSCA'])
+
+#fechadno o JSON
+jsonTxt = jsonTxt[:-1] + "  ]  }"
+jsonTxt.replace("\('", "").replace("',\)", "")
+
+#gerando o arquivo .json
+file =  open("../output/atividadeEconomica.json", "w")
+file.write(jsonTxt)
+file.close()
+
+
+
+
+#print(cnaes.loc[1])
+
+#print(cnaes.to_json())
